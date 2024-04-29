@@ -51,6 +51,5 @@ class Resnet18(FwdContinualBackbone):
 if __name__ == '__main__':
     model = Resnet18(num_classes=50)
     x = torch.ones([2, 3, 128, 128])
-    
+
     ipdb.set_trace()
-    

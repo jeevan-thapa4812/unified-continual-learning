@@ -1,8 +1,13 @@
-import numpy  # needed (don't change it)
 import importlib
 import os
 import socket
 import sys
+from ipdb import iex
+import importlib
+import os
+import socket
+import sys
+
 from ipdb import iex
 
 mammoth_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -20,9 +25,9 @@ import torch
 from datasets import NAMES as DATASET_NAMES
 from datasets import ContinualDataset, get_dataset
 from models import get_all_models, get_model
-from backbones import get_all_backbones, get_backbone
+from backbones import get_backbone
 
-from utils import get_all_losses, get_loss
+from utils import get_loss
 from utils.args import add_backbone_args, add_management_args
 from utils.best_args import best_args
 from utils.conf import set_random_seed
@@ -48,7 +53,7 @@ def parse_args():
                              'dataset and memory buffer.')
     torch.set_num_threads(4)
     add_management_args(parser)
-    add_backbone_args(parser) # args for the backbone
+    add_backbone_args(parser)  # args for the backbone
     args = parser.parse_known_args()[0]
     mod = importlib.import_module('models.' + args.model)
 
@@ -77,13 +82,14 @@ def parse_args():
             args.model = 'joint_gcl'
     else:
         get_parser = getattr(mod, 'get_parser')
-        parser = get_parser() # the real parsing happens. 
-        args = parser.parse_args() 
+        parser = get_parser()  # the real parsing happens.
+        args = parser.parse_args()
 
     if args.seed is not None:
         set_random_seed(args.seed)
 
     return args
+
 
 @iex
 def main(args=None):
@@ -108,9 +114,9 @@ def main(args=None):
         args.minibatch_size = args.batch_size
 
     backbone = get_backbone(
-        backbone_name=args.backbone, 
-        indim=dataset.INDIM, 
-        hiddim=args.hiddim, 
+        backbone_name=args.backbone,
+        indim=dataset.INDIM,
+        hiddim=args.hiddim,
         outdim=dataset.N_CLASSES_PER_TASK,
         args=args
     )
@@ -131,11 +137,11 @@ def main(args=None):
         args.nowand = 1
 
     # set job name
-    setproctitle.setproctitle('{}_{}_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset))
+    setproctitle.setproctitle(
+        '{}_{}_{}'.format(args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset))
 
     # train the model
     train(model, dataset, args)
-
 
 
 if __name__ == '__main__':

@@ -3,23 +3,22 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Tuple, Type
-from argparse import Namespace
 import os
-import numpy as np
+from argparse import Namespace
+from typing import Tuple
 
+import numpy as np
 import torch.nn.functional as F
 import torchvision.transforms as transforms
-from backbones.mnistmlp import MNISTMLP
 from PIL import Image
 from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 
+from backbones.mnistmlp import MNISTMLP
 from datasets.transforms.permutation import FixedPermutation
 from datasets.utils.continual_dataset import ContinualDataset
 from datasets.utils.validation import get_train_val
 from utils.conf import base_path_dataset as base_path
-
 
 
 class MyMNIST(MNIST):
@@ -59,7 +58,7 @@ class PermutedMNIST(ContinualDataset):
     N_TASKS = 20
     INDIM = (1, 28, 28)
     MAX_N_SAMPLES_PER_TASK = 60000
-    
+
     def __init__(self, args: Namespace) -> None:
         super().__init__(args)
         self.setup_loaders()
@@ -69,27 +68,29 @@ class PermutedMNIST(ContinualDataset):
         current_test = self.test_loaders[self.i]
 
         next_train, next_test = None, None
-        if self.i+1 < self.N_TASKS:
-            next_train = self.train_loaders[self.i+1]
-            next_test = self.test_loaders[self.i+1]
-        
+        if self.i + 1 < self.N_TASKS:
+            next_train = self.train_loaders[self.i + 1]
+            next_test = self.test_loaders[self.i + 1]
+
         return current_train, current_test, next_train, next_test
 
     def setup_loaders(self):
         self.test_loaders, self.train_loaders = [], []
         for _ in range(self.N_TASKS):
             transform = transforms.Compose((transforms.ToTensor(), FixedPermutation(seed=np.random.randint(9999))))
-            train_dataset = MyMNIST(os.path.join(base_path(),'MNIST'),
-                        train=True, download=True, transform=transform)
+            train_dataset = MyMNIST(os.path.join(base_path(), 'MNIST'),
+                                    train=True, download=True, transform=transform)
             if self.args.validation:
                 train_dataset, test_dataset = get_train_val(train_dataset,
                                                             transform, PermutedMNIST.NAME, self.args.validation_perc)
             else:
-                test_dataset = MyMNIST(os.path.join(base_path(),'MNIST'),
-                                    train=False, download=True, transform=transform)
+                test_dataset = MyMNIST(os.path.join(base_path(), 'MNIST'),
+                                       train=False, download=True, transform=transform)
 
-            train_loader = DataLoader(train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers)
-            test_loader = DataLoader(test_dataset, batch_size=self.args.batch_size, shuffle=False, num_workers=self.args.num_workers)
+            train_loader = DataLoader(train_dataset, batch_size=self.args.batch_size, shuffle=True,
+                                      num_workers=self.args.num_workers)
+            test_loader = DataLoader(test_dataset, batch_size=self.args.batch_size, shuffle=False,
+                                     num_workers=self.args.num_workers)
 
             self.test_loaders.append(test_loader)
             self.train_loaders.append(train_loader)

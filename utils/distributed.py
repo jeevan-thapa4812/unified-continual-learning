@@ -16,7 +16,8 @@ def setup(rank, world_size):
     os.environ['MASTER_PORT'] = str(port)
 
     # initialize the process group
-    print(f"Running basic DDP example on rank {rank}/{world_size} (host {host}, node {os.environ['SLURMD_NODENAME']} port {port}).")
+    print(
+        f"Running basic DDP example on rank {rank}/{world_size} (host {host}, node {os.environ['SLURMD_NODENAME']} port {port}).")
     sys.stdout.flush()
     dist.init_process_group("gloo", rank=rank, world_size=world_size)
     print("Inited")
@@ -61,7 +62,6 @@ def make_ddp(model):
 
 
 class CustomDP(DataParallel):
-
     intercept_names = ['classifier', 'num_classes', 'set_return_prerelu']
 
     def __getattr__(self, name: str):

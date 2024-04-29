@@ -3,19 +3,11 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
-import math
-import ipdb
-import numpy as np
 import torch
-from datasets.utils.validation import ValidationDataset
-from torch.optim import SGD
-from torchvision import transforms
-
-from datasets import get_dataset
 from torch.utils.data import DataLoader
+
 from models.utils.continual_model import ContinualModel
-from utils.args import add_management_args, add_experiment_args, add_backbone_args, ArgumentParser
-from utils.status import progress_bar
+from utils.args import add_backbone_args, add_experiment_args, add_management_args, ArgumentParser
 
 
 def get_parser() -> ArgumentParser:
@@ -36,11 +28,12 @@ class Joint(ContinualModel):
         trainsets = [x.dataset for x in dataset.train_loaders]
         comb_dataset = torch.utils.data.ConcatDataset(trainsets)
         # ipdb.set_trace()
-        self.data_loader = DataLoader(comb_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers)
+        self.data_loader = DataLoader(comb_dataset, batch_size=self.args.batch_size, shuffle=True,
+                                      num_workers=self.args.num_workers)
         self.data_iter = iter(self.data_loader)
 
     def observe(self, cur_data, next_data):
-        try: 
+        try:
             x, y, idx = self.data_iter.next()
             x, y = x.to(self.device), y.to(self.device)
         except:

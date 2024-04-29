@@ -63,7 +63,9 @@ def random_flip(x):
 def random_grayscale(x, prob=0.2):
     assert len(x.shape) == 4
     mask = torch.rand(x.shape[0]) < prob
-    x[mask] = (x[mask] * torch.tensor([[0.299, 0.587, 0.114]]).unsqueeze(2).unsqueeze(2).to(x.device)).sum(1, keepdim=True).repeat_interleave(3, 1)
+    x[mask] = (x[mask] * torch.tensor([[0.299, 0.587, 0.114]]).unsqueeze(2).unsqueeze(2).to(x.device)).sum(1,
+                                                                                                           keepdim=True).repeat_interleave(
+        3, 1)
     return x
 
 
@@ -80,7 +82,9 @@ def random_crop(x, padding):
     mask_y = mask_x.transpose(1, 2)
     mask_x = ((mask_x >= crop_x_start.unsqueeze(1).unsqueeze(2)) & (mask_x < crop_x_end.unsqueeze(1).unsqueeze(2)))
     mask_y = ((mask_y >= crop_y_start.unsqueeze(1).unsqueeze(2)) & (mask_y < crop_y_end.unsqueeze(1).unsqueeze(2)))
-    return oboe[mask_x.unsqueeze(1).repeat(1, x.shape[1], 1, 1) * mask_y.unsqueeze(1).repeat(1, x.shape[1], 1, 1)].reshape(x.shape[0], 3, x.shape[2], x.shape[3])
+    return oboe[
+        mask_x.unsqueeze(1).repeat(1, x.shape[1], 1, 1) * mask_y.unsqueeze(1).repeat(1, x.shape[1], 1, 1)].reshape(
+        x.shape[0], 3, x.shape[2], x.shape[3])
 
 
 class soft_aug():

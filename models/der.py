@@ -1,16 +1,11 @@
 import torch
-import numpy as np
-
 import torch.nn.functional as F
 
 from datasets import get_dataset
-from models.utils.continual_model import ContinualModel
-from utils.args import add_management_args, add_experiment_args, add_rehearsal_args, add_backbone_args, ArgumentParser
-from utils.buffer import Buffer
-
 from models.er import setup_buffer
-
-import ipdb
+from models.utils.continual_model import ContinualModel
+from utils.args import add_backbone_args, add_experiment_args, add_management_args, add_rehearsal_args, ArgumentParser
+from utils.buffer import Buffer
 
 
 def get_parser() -> ArgumentParser:
@@ -39,17 +34,17 @@ class DER(ContinualModel):
 
         dataset = get_dataset(args)
         self.cpt = dataset.N_CLASSES_PER_TASK
-        
+
         # set up the memory buffer 
         self.memory = Buffer(
-            buffer_size=args.buffer_size, 
-            device=self.device, 
-            input_size=dataset.INDIM, 
+            buffer_size=args.buffer_size,
+            device=self.device,
+            input_size=dataset.INDIM,
             num_classes=dataset.N_CLASSES_PER_TASK,
             batch_size=args.buffer_batch_size,
             domain_buffers=None
         ).to(self.device)
-        
+
         self.alpha = args.alpha
         self.beta = args.beta
 
@@ -66,7 +61,7 @@ class DER(ContinualModel):
 
     def get_past_data(self):
         # get past data, past pseudo-labels, past domain ids.
-        try: 
+        try:
             past_data = next(self.memory)
         except:
             self.memory = iter(self.memory)
@@ -75,9 +70,9 @@ class DER(ContinualModel):
 
     def observe(self, cur_data, next_data):
         inputs, labels, _, = cur_data
-        
+
         bs1 = inputs.shape[0]
-        
+
         if self.current_task > 1:
             buf_inputs, buf_labels, buf_logits, _ = self.get_past_data()
             bs2 = buf_inputs.shape[0]

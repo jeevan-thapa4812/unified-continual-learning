@@ -29,11 +29,12 @@ def forgetting(results):
 
     return np.mean(li)
 
+
 def average_i(results, i):
-    assert(i < len(results[0]))
-    return np.mean(results[i][:i+1])
+    assert (i < len(results[0]))
+    return np.mean(results[i][:i + 1])
 
 
 def average_iplus1(results, i):
-    assert(i < len(results[0]))
-    return np.mean(results[i][:i+2])
+    assert (i < len(results[0]))
+    return np.mean(results[i][:i + 2])

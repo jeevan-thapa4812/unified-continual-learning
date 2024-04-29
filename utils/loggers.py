@@ -3,16 +3,16 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
-from contextlib import suppress
 import os
 import sys
+from contextlib import suppress
 from typing import Any, Dict
 
 import numpy as np
 
 from utils import create_if_not_exists
 from utils.conf import base_path
-from utils.metrics import average_i, average_iplus1, backward_transfer, forward_transfer, forgetting
+from utils.metrics import average_i, average_iplus1, backward_transfer, forgetting, forward_transfer
 
 useless_args = ['dataset', 'tensorboard', 'validation', 'model',
                 'csv_log', 'notes', 'load_best_args']
@@ -34,14 +34,14 @@ def print_mean_accuracy(mean_acc: np.ndarray, task_number: int,
         mean_acc_class_il, mean_acc_task_il = mean_acc
         print('\nAccuracy for {} task(s): \t [Class-IL]: {} %'
               ' \t [Task-IL]: {} %\n'.format(task_number, round(
-                  mean_acc_class_il, 2), round(mean_acc_task_il, 2)), file=sys.stderr)
+            mean_acc_class_il, 2), round(mean_acc_task_il, 2)), file=sys.stderr)
 
 
 class Logger:
     def __init__(self, dataset_str: str,
                  model_str: str) -> None:
-        self.accs = [] # average accs 
-        self.accs_iplus1 = [] # average accs
+        self.accs = []  # average accs
+        self.accs_iplus1 = []  # average accs
         self.dataset = dataset_str
         self.model = model_str
         self.fwt = None
@@ -128,7 +128,7 @@ class Logger:
         create_if_not_exists(target_folder + self.setting +
                              "/" + self.dataset + "/" + self.model)
 
-        path = target_folder + self.setting + "/" + self.dataset\
-            + "/" + self.model + "/logs.pyd"
+        path = target_folder + self.setting + "/" + self.dataset \
+               + "/" + self.model + "/logs.pyd"
         with open(path, 'a') as f:
             f.write(str(wrargs) + '\n')

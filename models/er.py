@@ -1,9 +1,9 @@
-import torch
 import numpy as np
+import torch
 
 from datasets import get_dataset
 from models.utils.continual_model import ContinualModel, optimizer_dict
-from utils.args import add_management_args, add_experiment_args, add_rehearsal_args, add_backbone_args, ArgumentParser
+from utils.args import add_backbone_args, add_experiment_args, add_management_args, add_rehearsal_args, ArgumentParser
 from utils.buffer import Buffer
 
 
@@ -16,6 +16,7 @@ def get_parser() -> ArgumentParser:
     add_backbone_args(parser)
     return parser
 
+
 ############ Important #############
 ### shared across the rehearsal-based methods.
 ############ 
@@ -27,35 +28,36 @@ def setup_buffer(self, cur_train_loader, next_train_loader):
     # by default.
     sample_num = self.memory.buffer_size // self.current_task
     samples_per_class = sample_num // self.cpt
-    
+
     examples = [[] for _ in range(self.cpt)]
     labels = [[] for _ in range(self.cpt)]
     preds = [[] for _ in range(self.cpt)]
-    sizes = np.zeros((self.cpt, ))
+    sizes = np.zeros((self.cpt,))
 
-    self.net.eval() # this network is trained on the cur_train_loader.
+    self.net.eval()  # this network is trained on the cur_train_loader.
     with torch.no_grad():
         for _, (xs, ys, __) in enumerate(cur_train_loader):
             xs, ys = xs.to(self.device), ys.to(self.device)
-            pred = self.net(xs) # logits stored in the memory.
+            pred = self.net(xs)  # logits stored in the memory.
             for label in range(self.cpt):
-                examples[label].append(xs[ys==label])
-                labels[label].append(ys[ys==label])
-                preds[label].append(pred[ys==label])
-                sizes[label] += xs[ys==label].shape[0]
+                examples[label].append(xs[ys == label])
+                labels[label].append(ys[ys == label])
+                preds[label].append(pred[ys == label])
+                sizes[label] += xs[ys == label].shape[0]
             # no need to iterate through the whole dataset.
-            if all(sizes > samples_per_class): 
+            if all(sizes > samples_per_class):
                 break
         # stack the preds 
         examples = torch.vstack([torch.vstack(m)[:samples_per_class] for m in examples])
         labels = torch.hstack([torch.hstack(m)[:samples_per_class] for m in labels])
         preds = torch.vstack([torch.vstack(m)[:samples_per_class] for m in preds])
-        
+
         assert examples.shape[0] == labels.shape[0] == preds.shape[0], 'Mismatched shape of the added data.'
     self.net.train()
 
     # update the memory bank with the selected examples.
     self.memory.update(examples, labels=labels, preds=preds)
+
 
 class Er(ContinualModel):
     NAME = 'er'
@@ -67,12 +69,12 @@ class Er(ContinualModel):
 
         dataset = get_dataset(args)
         self.cpt = dataset.N_CLASSES_PER_TASK
-        
+
         # set up the memory buffer 
         self.memory = Buffer(
-            buffer_size=args.buffer_size, 
-            device=self.device, 
-            input_size=dataset.INDIM, 
+            buffer_size=args.buffer_size,
+            device=self.device,
+            input_size=dataset.INDIM,
             num_classes=dataset.N_CLASSES_PER_TASK,
             batch_size=args.buffer_batch_size,
             domain_buffers=None
@@ -85,7 +87,7 @@ class Er(ContinualModel):
 
         if self.current_task > 1:
             self.memory = iter(self.memory)
-        
+
         self.reset_opt()
 
     def end_task(self, cur_train_loader, next_train_loader):
@@ -93,7 +95,7 @@ class Er(ContinualModel):
 
     def get_past_data(self):
         # get past data, past pseudo-labels, past domain ids.
-        try: 
+        try:
             past_data = next(self.memory)
         except:
             self.memory = iter(self.memory)
@@ -117,4 +119,4 @@ class Er(ContinualModel):
         return loss.item()
 
     def reset_opt(self):
-        self.opt = optimizer_dict[self.args.opt](self.net.parameters(), lr=self.args.lr) # opt created. 
+        self.opt = optimizer_dict[self.args.opt](self.net.parameters(), lr=self.args.lr)  # opt created.

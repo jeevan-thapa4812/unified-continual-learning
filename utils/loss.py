@@ -11,9 +11,10 @@ import torch.nn as nn
 class SupConLoss(nn.Module):
     """Supervised Contrastive Learning: https://arxiv.org/pdf/2004.11362.pdf.
     It also supports the unsupervised contrastive loss in SimCLR"""
+
     def __init__(
-            self, 
-            temperature=0.07, 
+            self,
+            temperature=0.07,
             contrast_mode='all',
             base_temperature=0.07,
             loss_form='dotprod',
@@ -23,7 +24,7 @@ class SupConLoss(nn.Module):
         self.contrast_mode = contrast_mode
         self.base_temperature = base_temperature
         self.loss_form = loss_form
-        self.eps = eps # small constant to avoid the numerical stability issue.
+        self.eps = eps  # small constant to avoid the numerical stability issue.
 
     def forward(self, features, labels=None, mask=None):
         """Compute loss for model. If both `labels` and `mask` are None,
@@ -114,14 +115,15 @@ class SupConLoss(nn.Module):
         assert not torch.isnan(loss) and not torch.isinf(loss)
 
         return loss
-    
+
 
 class CrossDomainSupConLoss(nn.Module):
     """Cross-Domain Supervised Contrastive Learning based on the SupCon loss (https://arxiv.org/pdf/2004.11362.pdf).
     """
+
     def __init__(
-            self, 
-            temperature=0.07, 
+            self,
+            temperature=0.07,
             contrast_mode='all',
             base_temperature=0.07,
             loss_form='dotprod',
@@ -131,7 +133,7 @@ class CrossDomainSupConLoss(nn.Module):
         self.contrast_mode = contrast_mode
         self.base_temperature = base_temperature
         self.loss_form = loss_form
-        self.eps = eps # small constant to avoid the numerical stability issue.
+        self.eps = eps  # small constant to avoid the numerical stability issue.
 
     def forward(self, features, labels=None, domains=None, mask=None):
         """Compute loss for model. If both `labels` and `mask` are None,
@@ -168,7 +170,7 @@ class CrossDomainSupConLoss(nn.Module):
         elif labels is not None and domains is not None:
             labels = labels.contiguous().view(-1, 1)
             domains = domains.contiguous().view(-1, 1)
-            if not all([labels.shape[0] == batch_size, 
+            if not all([labels.shape[0] == batch_size,
                         labels.shape[0] == domains.shape[0],
                         batch_size == domains.shape[0]]):
                 raise ValueError('Label, domain, feature nums not match.')
@@ -229,10 +231,8 @@ class CrossDomainSupConLoss(nn.Module):
 
         # loss
         loss = - (self.temperature / self.base_temperature) * mean_log_prob_pos
-        loss = loss.view(anchor_count, batch_size).mean() 
+        loss = loss.view(anchor_count, batch_size).mean()
 
         assert not torch.isnan(loss) and not torch.isinf(loss)
 
         return loss
-    
-

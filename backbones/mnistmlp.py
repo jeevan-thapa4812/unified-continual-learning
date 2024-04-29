@@ -27,13 +27,13 @@ class LinearClassifier(nn.Module):
 
 class MNISTMLP(FwdContinualBackbone):
     NAME = 'mnistmlp'
-    
+
     def __init__(self, indim, hiddim, outdim, args) -> None:
         super().__init__()
         self.indim = indim # indim not necessarily an integer
         self.hiddim = hiddim
         self.outdim = outdim
-        
+
         # constructing the encoder and the predictor
         if isinstance(indim, tuple) or isinstance(indim, list):
             self.enc = nn.Sequential(
@@ -43,7 +43,7 @@ class MNISTMLP(FwdContinualBackbone):
                 nn.Linear(hiddim, hiddim),
                 nn.ReLU()
             )
-        else: 
+        else:
             self.enc = nn.Sequential(
                 nn.Linear(indim, hiddim),
                 nn.ReLU(),
@@ -58,10 +58,10 @@ class MNISTMLP(FwdContinualBackbone):
 
     def forward(self, x, returnt='logits'):
         feats = self.enc(x)
-        
+
         if returnt == 'features':
             return feats
-        
+
         # classifier supports returning two outputss
         logits, prob = self.pred(feats, return_softmax=True)
 

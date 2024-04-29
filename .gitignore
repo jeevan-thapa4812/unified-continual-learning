@@ -10,3 +10,4 @@ checkpoints/
 wandb
 *.csv
 *.pkl
+.idea

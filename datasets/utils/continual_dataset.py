@@ -1,10 +1,8 @@
 from argparse import Namespace
 from typing import Tuple
 
-import numpy as np
 import torch.nn as nn
-import torch.optim
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 
 
 class ContinualDataset:

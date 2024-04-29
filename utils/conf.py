@@ -1,7 +1,9 @@
-import random
-import torch
-import numpy as np
 import os
+import random
+
+import numpy as np
+import torch
+
 
 def get_device() -> torch.device:
     """
@@ -15,6 +17,7 @@ def base_path() -> str:
     Returns the base bath where to log accuracies and tensorboard data.
     """
     return os.path.abspath('./')
+
 
 def base_path_dataset() -> str:
     """

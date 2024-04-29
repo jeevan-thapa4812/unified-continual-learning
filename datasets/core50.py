@@ -1,19 +1,17 @@
-from typing import Tuple, Type
-from argparse import Namespace
 import os
-import numpy as np
+from argparse import Namespace
+from typing import Tuple
 
 import torch
 import torch.nn.functional as F
 import torchvision.transforms as transforms
-from backbones.mnistmlp import MNISTMLP
 from PIL import Image
 from torch.utils.data import DataLoader, random_split
 from torchvision.datasets import ImageFolder
 
-from datasets.transforms.permutation import FixedPermutation
+from backbones.mnistmlp import MNISTMLP
 from datasets.utils.continual_dataset import ContinualDataset
-from datasets.utils.validation import get_train_val
+
 # from utils.conf import base_path_dataset as base_path
 
 base_path = '/data/local/core50/core50_128x128'
@@ -59,7 +57,7 @@ class SequentialCore50(ContinualDataset):
     N_TASKS = 11
     INDIM = (3, 128, 128)
     MAX_N_SAMPLES_PER_TASK = 16000
-    
+
     def __init__(self, args: Namespace) -> None:
         super().__init__(args)
         self.setup_loaders()
@@ -69,41 +67,45 @@ class SequentialCore50(ContinualDataset):
         current_test = self.test_loaders[self.i]
 
         next_train, next_test = None, None
-        if self.i+1 < self.N_TASKS:
-            next_train = self.train_loaders[self.i+1]
-            next_test = self.test_loaders[self.i+1]
-        
+        if self.i + 1 < self.N_TASKS:
+            next_train = self.train_loaders[self.i + 1]
+            next_test = self.test_loaders[self.i + 1]
+
         return current_train, current_test, next_train, next_test
 
     def setup_loaders(self):
         self.test_loaders, self.train_loaders = [], []
         for i in range(self.N_TASKS):
             train_transform = transforms.Compose([
-                transforms.RandomHorizontalFlip(), 
+                transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], 
+                    mean=[0.485, 0.456, 0.406],
                     std=[0.229, 0.224, 0.225]
                 )
             ])
             test_transform = transforms.Compose([
                 transforms.ToTensor(),
                 transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], 
+                    mean=[0.485, 0.456, 0.406],
                     std=[0.229, 0.224, 0.225]
                 )
             ])
-            trainset_full = Core50(os.path.join(base_path, f's{i+1}'), transform=train_transform)
-            testset_full = Core50(os.path.join(base_path, f's{i+1}'), transform=test_transform)
+            trainset_full = Core50(os.path.join(base_path, f's{i + 1}'), transform=train_transform)
+            testset_full = Core50(os.path.join(base_path, f's{i + 1}'), transform=test_transform)
 
             length = len(trainset_full)
             train_length = int(0.8 * length)
             test_length = length - train_length
-            train_dataset, _ = random_split(trainset_full, [train_length, test_length], generator=torch.Generator().manual_seed(3407))
-            _, test_dataset = random_split(testset_full, [train_length, test_length], generator=torch.Generator().manual_seed(3407))
+            train_dataset, _ = random_split(trainset_full, [train_length, test_length],
+                                            generator=torch.Generator().manual_seed(3407))
+            _, test_dataset = random_split(testset_full, [train_length, test_length],
+                                           generator=torch.Generator().manual_seed(3407))
 
-            train_loader = DataLoader(train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers)
-            test_loader = DataLoader(test_dataset, batch_size=self.args.batch_size, shuffle=False, num_workers=self.args.num_workers)
+            train_loader = DataLoader(train_dataset, batch_size=self.args.batch_size, shuffle=True,
+                                      num_workers=self.args.num_workers)
+            test_loader = DataLoader(test_dataset, batch_size=self.args.batch_size, shuffle=False,
+                                     num_workers=self.args.num_workers)
 
             self.test_loaders.append(test_loader)
             self.train_loaders.append(train_loader)
@@ -143,6 +145,7 @@ class SequentialCore50(ContinualDataset):
     @staticmethod
     def get_minibatch_size() -> int:
         return SequentialCore50.get_batch_size()
+
 
 class TransferCore50(ContinualDataset):
     """
@@ -153,7 +156,7 @@ class TransferCore50(ContinualDataset):
     N_TASKS = 8
     INDIM = (3, 128, 128)
     MAX_N_SAMPLES_PER_TASK = 16000
-    
+
     def __init__(self, args: Namespace) -> None:
         super().__init__(args)
         self.setup_loaders()
@@ -163,41 +166,45 @@ class TransferCore50(ContinualDataset):
         current_test = self.test_loaders[self.i]
 
         next_train, next_test = None, None
-        if self.i+1 < self.N_TASKS:
-            next_train = self.train_loaders[self.i+1]
-            next_test = self.test_loaders[self.i+1]
-        
+        if self.i + 1 < self.N_TASKS:
+            next_train = self.train_loaders[self.i + 1]
+            next_test = self.test_loaders[self.i + 1]
+
         return current_train, current_test, next_train, next_test
 
     def setup_loaders(self):
         self.test_loaders, self.train_loaders = [], []
         for i in range(self.N_TASKS):
             train_transform = transforms.Compose([
-                transforms.RandomHorizontalFlip(), 
+                transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], 
+                    mean=[0.485, 0.456, 0.406],
                     std=[0.229, 0.224, 0.225]
                 )
             ])
             test_transform = transforms.Compose([
                 transforms.ToTensor(),
                 transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], 
+                    mean=[0.485, 0.456, 0.406],
                     std=[0.229, 0.224, 0.225]
                 )
             ])
-            trainset_full = Core50(os.path.join(base_path, f's{i+1}'), transform=train_transform)
-            testset_full = Core50(os.path.join(base_path, f's{i+1}'), transform=test_transform)
+            trainset_full = Core50(os.path.join(base_path, f's{i + 1}'), transform=train_transform)
+            testset_full = Core50(os.path.join(base_path, f's{i + 1}'), transform=test_transform)
 
             length = len(trainset_full)
             train_length = int(0.8 * length)
             test_length = length - train_length
-            train_dataset, _ = random_split(trainset_full, [train_length, test_length], generator=torch.Generator().manual_seed(3407))
-            _, test_dataset = random_split(testset_full, [train_length, test_length], generator=torch.Generator().manual_seed(3407))
+            train_dataset, _ = random_split(trainset_full, [train_length, test_length],
+                                            generator=torch.Generator().manual_seed(3407))
+            _, test_dataset = random_split(testset_full, [train_length, test_length],
+                                           generator=torch.Generator().manual_seed(3407))
 
-            train_loader = DataLoader(train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers)
-            test_loader = DataLoader(test_dataset, batch_size=self.args.batch_size, shuffle=False, num_workers=self.args.num_workers)
+            train_loader = DataLoader(train_dataset, batch_size=self.args.batch_size, shuffle=True,
+                                      num_workers=self.args.num_workers)
+            test_loader = DataLoader(test_dataset, batch_size=self.args.batch_size, shuffle=False,
+                                     num_workers=self.args.num_workers)
 
             self.test_loaders.append(test_loader)
             self.train_loaders.append(train_loader)
@@ -237,6 +244,7 @@ class TransferCore50(ContinualDataset):
     @staticmethod
     def get_minibatch_size() -> int:
         return SequentialCore50.get_batch_size()
+
 
 if __name__ == '__main__':
     # args = Namespace()

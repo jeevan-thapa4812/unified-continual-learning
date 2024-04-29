@@ -6,11 +6,10 @@
 import sys
 from argparse import Namespace
 from contextlib import suppress
-from typing import List
 
 import torch
 import torch.nn as nn
-from torch.optim import SGD, Adam
+from torch.optim import Adam, SGD
 
 from utils.conf import get_device
 from utils.magic import persistent_locals
@@ -22,6 +21,7 @@ optimizer_dict = {
     'sgd': SGD,
     'adam': Adam
 }
+
 
 class ContinualModel(nn.Module):
     """
@@ -37,7 +37,7 @@ class ContinualModel(nn.Module):
         self.loss = loss
         self.args = args
         self.transform = transform
-        self.opt = optimizer_dict[args.opt](self.net.parameters(), lr=self.args.lr) # opt created. 
+        self.opt = optimizer_dict[args.opt](self.net.parameters(), lr=self.args.lr)  # opt created.
         self.device = get_device()
 
         if not self.NAME:
@@ -78,7 +78,7 @@ class ContinualModel(nn.Module):
         """
         if not self.args.nowand and not self.args.debug_mode:
             wandb.log({k: (v.item() if isinstance(v, torch.Tensor) and v.dim() == 0 else v)
-                      for k, v in locals.items() if k.startswith('_wandb_') or k.startswith('loss')})
+                       for k, v in locals.items() if k.startswith('_wandb_') or k.startswith('loss')})
 
     def save(self, save_path):
         """

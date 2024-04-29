@@ -1,19 +1,16 @@
 import numpy as np
 import torch
-from torch.optim import SGD, Adam
 from torch.nn.functional import softmax
+from torch.optim import Adam
 
-from datasets import get_dataset
 from backbones import get_all_backbones, get_backbone
+from datasets import get_dataset
 from models.lwf import soft_ce
 from models.utils.continual_model import ContinualModel, optimizer_dict
-
-from utils.args import add_management_args, add_experiment_args, add_rehearsal_args, add_backbone_args, ArgumentParser
+from utils.args import add_backbone_args, add_experiment_args, add_management_args, add_rehearsal_args, ArgumentParser
 from utils.buffer_feature import Buffer, setup_buffer
-from utils import valid_loss
 from utils.loss import CrossDomainSupConLoss
 
-import ipdb
 
 # Model Specific Argument Parsing
 def get_parser() -> ArgumentParser:
@@ -26,7 +23,7 @@ def get_parser() -> ArgumentParser:
     ####################################
     # for model-specific arguments.
     ####################################
-    
+
     # Discriminator-specific hyper-parameters
     parser.add_argument('--discriminator', type=str, required=True,
                         help='Backbone name.', choices=get_all_backbones())
@@ -40,7 +37,7 @@ def get_parser() -> ArgumentParser:
                         help='number of the hidden layers in the discriminator')
     parser.add_argument('--train-disc-inadv', action='store_true',
                         help='train the discriminator for one epoch before one task.')
-    
+
     # Adaptive-loss-weights-specific hyper-parameters
     parser.add_argument('--task-weight-k', type=int, default=1,
                         help='num of iterations of task weight update.')
@@ -54,23 +51,23 @@ def get_parser() -> ArgumentParser:
                         help='the weight of the encoder past-embedding-stable loss.')
     parser.add_argument('--supcon-lambda', type=float, default=1.,
                         help='the weight of the supervised contrastive loss.')
-    
+
     # Loss forms and VC-dimention hyper-parameters
     parser.add_argument('--C', type=float, default=1.,
                         help='the weight of the generalization error.')
     parser.add_argument('--kd-loss-form', type=str, default='ce',
                         help='The loss form of the alpha * kd_loss', choices=('ce', 'l2', '0-1'))
-    parser.add_argument('--kd-threshold', type=float, default=10., 
+    parser.add_argument('--kd-threshold', type=float, default=10.,
                         help='The threshold for the LwF loss.')
     parser.add_argument('--loss-form', type=str, default='avg',
-                        help='The loss form of training, sum=(crm + crm on mem);  avg: 1/t * sum.', 
+                        help='The loss form of training, sum=(crm + crm on mem);  avg: 1/t * sum.',
                         choices=('avg', 'sum'))
     parser.add_argument('--supcon-normed', action='store_true',
                         help='whether normalize the embedding to unit sphere when doing the supervised contrastive loss')
     parser.add_argument('--supcon-temperature', type=float, default=1.,
                         help='whether normalize the embedding to unit sphere when doing the supervised contrastive loss')
     parser.add_argument('--supcon-sim', type=str, default='dotprod',
-                        help='The loss form of SupCon, ', 
+                        help='The loss form of SupCon, ',
                         choices=('dotprod', 'l2'))
     parser.add_argument('--supcon-first-domain', action='store_true',
                         help='whether apply the supervised contrastive loss to the first-domain training.')
@@ -107,9 +104,9 @@ class UDIL(ContinualModel):
 
         # set up the memory buffer 
         self.memory = Buffer(
-            buffer_size=args.buffer_size, 
-            device=self.device, 
-            input_size=dataset.INDIM, 
+            buffer_size=args.buffer_size,
+            device=self.device,
+            input_size=dataset.INDIM,
             num_classes=dataset.N_CLASSES_PER_TASK,
             batch_size=buffer_batch_size,
             domain_buffers=None
@@ -129,7 +126,7 @@ class UDIL(ContinualModel):
 
         # SupCon Loss
         self.supcon = CrossDomainSupConLoss(
-            temperature=args.supcon_temperature, 
+            temperature=args.supcon_temperature,
             base_temperature=args.supcon_temperature,
             loss_form=args.supcon_sim
         )
@@ -154,7 +151,7 @@ class UDIL(ContinualModel):
             self.setup_logits(cur_train_loader, next_train_loader)
             self.setup_task_weights()
             # self.setup_discriminators() # reset the parameters
-            
+
             # recompute the logits, and store the embeddings for the past tasks.
             self.setup_memory()
 
@@ -167,7 +164,7 @@ class UDIL(ContinualModel):
 
             # TODO: this feature needs to be added to LwfAda
             self.reset_opt()
-    
+
     def train_discs(self, cur_train_loader):
         """
         Attempts to stablize the encoder training.
@@ -179,9 +176,10 @@ class UDIL(ContinualModel):
             past_data = self.get_past_data()
 
             err_rates, loss_disc = self.update_disc(cur_data=cur_data, past_data=past_data)
-            loss_task_logits = self.update_task_weights(cur_data=cur_data, past_data=past_data, hdivs=2*(1-2*err_rates))
+            loss_task_logits = self.update_task_weights(cur_data=cur_data, past_data=past_data,
+                                                        hdivs=2 * (1 - 2 * err_rates))
             # loss_task_logits = self.update_task_weights(cur_data=cur_data, past_data=past_data, hdiv=2*(1-2*loss_err_rate))
-        
+
     def end_task(self, cur_train_loader, next_train_loader):
         setup_buffer(self, cur_train_loader, next_train_loader)
         self.setup_past_err(cur_train_loader)
@@ -201,7 +199,7 @@ class UDIL(ContinualModel):
         #     np.full((1, n_prev), fill_value=-1),
         #     np.ones((1, n_prev)) 
         # ]), dtype=torch.float, requires_grad=True, device=self.device)
-        
+
         self.task_weight_opt = Adam([self.task_logits], lr=self.args.task_weight_lr)
 
     def setup_discriminators(self, args=None, dataset=None):
@@ -213,18 +211,18 @@ class UDIL(ContinualModel):
         """
         if self.disc is None:
             assert args is not None and dataset is not None
-            
+
             # get a pseudo-shape of the embedding
             self.net.eval()
-            pseudo_x = torch.zeros((2, *dataset.INDIM)).to(next(self.net.parameters()).device) # in case there is BN.
+            pseudo_x = torch.zeros((2, *dataset.INDIM)).to(next(self.net.parameters()).device)  # in case there is BN.
             reps = self.net(pseudo_x, returnt='features')
             self.net.train()
 
             # create discriminator
             self.disc = get_backbone(
-                backbone_name=args.discriminator, 
-                indim=reps.shape[1:], 
-                hiddim=args.disc_hiddim, 
+                backbone_name=args.discriminator,
+                indim=reps.shape[1:],
+                hiddim=args.disc_hiddim,
                 outdim=self.n_domains,
                 args=args
             ).to(self.device)
@@ -253,7 +251,7 @@ class UDIL(ContinualModel):
         """
         # TODO: we can add EMA to make it smoother.
         self.past_errs = []
-        
+
         self.net.eval()
         with torch.no_grad():
             # memory of the past domains.
@@ -271,7 +269,7 @@ class UDIL(ContinualModel):
                 pred = torch.argmax(logits, 1)
                 error += (pred != label).sum().item()
                 total += pred.shape[0]
-            self.past_errs.append(error/total)
+            self.past_errs.append(error / total)
         self.net.train()
 
     def setup_memory(self):
@@ -288,7 +286,7 @@ class UDIL(ContinualModel):
 
                 # forward of the net.
                 logits, _, feats = self.net(examples, returnt='all')
-                
+
                 # update the logits and features using the current model H_{t-1}.
                 buf.preds[indices] = logits
                 buf.feats[indices] = feats
@@ -296,7 +294,7 @@ class UDIL(ContinualModel):
 
     def get_past_data(self):
         # get past data, past pseudo-labels, past domain ids.
-        try: 
+        try:
             past_data = next(self.memory)
         except:
             self.memory = iter(self.memory)
@@ -317,17 +315,18 @@ class UDIL(ContinualModel):
             # ADDED: marked out the discriminator and task_weights update to catch the bug.
             for _ in range(self.loop_k):
                 err_rates, loss_disc = self.update_disc(cur_data=cur_data, past_data=past_data)
-                loss_task_logits = self.update_task_weights(cur_data=cur_data, past_data=past_data, hdivs=2*(1-2*err_rates))
+                loss_task_logits = self.update_task_weights(cur_data=cur_data, past_data=past_data,
+                                                            hdivs=2 * (1 - 2 * err_rates))
             # print(softmax(self.task_logits, dim=0))
 
         # update the model parameters.
         loss_cl, return_losses = self.update_weights(cur_data=cur_data, past_data=past_data)
-        
+
         # for loss recording
         if return_losses is not None:
-            loss_cur_erm, loss_cur_kd, loss_past, loss_encoder = return_losses 
+            loss_cur_erm, loss_cur_kd, loss_past, loss_encoder = return_losses
         return loss_cl
-    
+
     def update_disc(self, cur_data, past_data):
         """Update the discriminator for a couple steps."""
         criterion = torch.nn.CrossEntropyLoss(reduction='none')
@@ -344,29 +343,29 @@ class UDIL(ContinualModel):
         # binary classification
         for _ in range(self.disc_k):
             cur_x, _, _ = cur_data
-            cur_labels = (self.current_task-1) * torch.ones((cur_x.shape[0],), dtype=torch.long, device=self.device)
-            cur_sample_weights = torch.ones((cur_x.shape[0], ), device=self.device) / cur_x.shape[0]
+            cur_labels = (self.current_task - 1) * torch.ones((cur_x.shape[0],), dtype=torch.long, device=self.device)
+            cur_sample_weights = torch.ones((cur_x.shape[0],), device=self.device) / cur_x.shape[0]
 
             # get past data, past pseudo-labels, past domain ids.
             past_x, _, _, _, past_domain_ids = past_data
-            past_labels = (past_domain_ids-1).type(torch.long).to(self.device)
+            past_labels = (past_domain_ids - 1).type(torch.long).to(self.device)
             past_domain_ids = past_labels
 
             # get past sample weights.
-            beta_prime = (task_weights[1] / task_weights[1].sum()).detach().clone() # grad not passed through.
+            beta_prime = (task_weights[1] / task_weights[1].sum()).detach().clone()  # grad not passed through.
 
             unique_labels, past_domain_cnts = torch.unique(past_domain_ids, return_counts=True, sorted=True)
             unique_labels = unique_labels.type(torch.long).to(self.device)
             past_domain_cnts = past_domain_cnts.type(torch.float).to(self.device)
             full_cnts = torch.zeros_like(beta_prime, device=self.device)
             full_cnts[unique_labels] = past_domain_cnts.type(torch.float)
-            past_samples_weights = beta_prime[past_domain_ids] / full_cnts[past_domain_ids] # beta_i/N_i
+            past_samples_weights = beta_prime[past_domain_ids] / full_cnts[past_domain_ids]  # beta_i/N_i
             # past_samples_weights = beta_prime[past_domain_ids] / past_x.shape[0] # ADDED: make it balanced binary classification.
 
-
             # assemble the past and current to form a single batch.
-            xs, labels, sample_weights = torch.vstack([cur_x, past_x]), torch.hstack([cur_labels, past_labels]), torch.hstack([cur_sample_weights, past_samples_weights])
-        
+            xs, labels, sample_weights = torch.vstack([cur_x, past_x]), torch.hstack(
+                [cur_labels, past_labels]), torch.hstack([cur_sample_weights, past_samples_weights])
+
             self.disc_opt.zero_grad()
             with torch.no_grad():
                 # self.net.eval() # ADDED: make sure the feature computation doesn't include the BN layer and dropout output.
@@ -378,7 +377,7 @@ class UDIL(ContinualModel):
 
             # beta_sum = task_weights[1].sum().detach().item() # have the same scaling effect as the encoder.
             loss = (batch_loss * sample_weights).sum()
-            
+
             loss.backward()
             self.disc_opt.step()
 
@@ -387,24 +386,26 @@ class UDIL(ContinualModel):
         errs = []
         # incorrects = (torch.argmax(logits, 1) != labels)
         for i in range(self.current_task - 1):
-            binary_preds = torch.where(torch.argmax(logits[:, [i, self.current_task-1]], 1) == 0, i, self.current_task-1)
+            binary_preds = torch.where(torch.argmax(logits[:, [i, self.current_task - 1]], 1) == 0, i,
+                                       self.current_task - 1)
             incorrects = binary_preds != labels
-            past_inds, cur_inds = labels == i, labels == self.current_task-1
-            past_incorrects, cur_incorrects = incorrects[past_inds].sum() / past_inds.shape[0], incorrects[cur_inds].sum() / cur_inds.shape[0]
-            error_rate = ((past_incorrects+cur_incorrects)/2).item()
-            err = min(error_rate, 1-error_rate) # Is this correct? 
+            past_inds, cur_inds = labels == i, labels == self.current_task - 1
+            past_incorrects, cur_incorrects = incorrects[past_inds].sum() / past_inds.shape[0], incorrects[
+                cur_inds].sum() / cur_inds.shape[0]
+            error_rate = ((past_incorrects + cur_incorrects) / 2).item()
+            err = min(error_rate, 1 - error_rate)  # Is this correct?
             errs.append(err)
 
         # print('-----discriminator norms and error-----')
         # print(f'discriminator err: {err}')
         # print([torch.norm(x).detach().item() for x in list(self.disc.parameters())])
-        
+
         return torch.tensor(np.array(errs)).to(self.device), loss.item()
 
     def update_task_weights(self, cur_data, past_data, hdivs=0):
         self.net.eval()
         for _ in range(self.task_weight_k):
-            self.task_weight_opt.zero_grad() 
+            self.task_weight_opt.zero_grad()
 
             cur_x, cur_y, cur_idx = cur_data
             past_x, past_y, past_preds, past_feats_stored, past_domain_ids = past_data
@@ -412,7 +413,7 @@ class UDIL(ContinualModel):
             # concatenation for encoders that contains BN.
             inputs = torch.cat((cur_x, past_x))
             logits, _, feats = self.net(inputs, returnt='all')
-            
+
             # split to current and past
             cur_logits, past_logits = torch.split(logits, [cur_x.shape[0], past_x.shape[0]])
             cur_feats, past_feats = torch.split(feats, [cur_x.shape[0], past_x.shape[0]])
@@ -420,9 +421,9 @@ class UDIL(ContinualModel):
             loss_cur_kd = self.compute_current_kd(cur_logits, cur_idx, loss_form='0-1')
 
             loss_past = self.compute_past_losses(
-                logits_p=past_logits, 
-                logits_t=past_preds, 
-                labels=past_y, 
+                logits_p=past_logits,
+                logits_t=past_preds,
+                labels=past_y,
                 domain_ids=past_domain_ids,
                 loss_form='0-1'
             )
@@ -452,23 +453,23 @@ class UDIL(ContinualModel):
             self.opt.zero_grad()
             logits, _, feats = self.net(cur_x, returnt='all')
             loss_cl = self.loss(logits, cur_y)
-                    # supervised contrastive loss
+            # supervised contrastive loss
             if self.supcon_first:
                 loss_supcon = self.compute_supcon_loss(
-                    cur_feats=feats, 
-                    cur_labels=cur_y, 
-                    past_feats=None, 
+                    cur_feats=feats,
+                    cur_labels=cur_y,
+                    past_feats=None,
                     past_labels=None
                 )
                 assert not torch.isnan(loss_supcon) and not torch.isinf(loss_supcon)
                 loss = loss_cl + loss_supcon
             else:
                 loss = loss_cl
-                
+
             loss.backward()
             self.opt.step()
             return loss_cl.item(), None
-        
+
         # next task training
         cur_x, cur_y, cur_idx = cur_data
         past_x, past_y, past_preds, past_feats_stored, past_domain_ids = past_data
@@ -476,7 +477,7 @@ class UDIL(ContinualModel):
         # concatenation for encoders that contains BN.
         inputs = torch.cat((cur_x, past_x))
         logits, _, feats = self.net(inputs, returnt='all')
-        
+
         # split to current and past
         cur_logits, past_logits = torch.split(logits, [cur_x.shape[0], past_x.shape[0]])
         cur_feats, past_feats = torch.split(feats, [cur_x.shape[0], past_x.shape[0]])
@@ -494,9 +495,9 @@ class UDIL(ContinualModel):
 
         # gamma * E_{Di}(h) + alpha * E_{Di}(h, H_{t-1})
         loss_past = self.compute_past_losses(
-            logits_p=past_logits, 
-            logits_t=past_preds, 
-            labels=past_y, 
+            logits_p=past_logits,
+            logits_t=past_preds,
+            labels=past_y,
             domain_ids=past_domain_ids,
             loss_form=self.args.kd_loss_form
         )
@@ -504,29 +505,28 @@ class UDIL(ContinualModel):
 
         # supervised contrastive loss
         loss_supcon = self.compute_supcon_loss(
-            cur_feats=cur_feats, 
-            past_feats=past_feats, 
-            cur_labels=cur_y, 
-            past_labels=past_y, 
-            cur_domains=self.current_task * torch.ones((cur_feats.shape[0], )),
+            cur_feats=cur_feats,
+            past_feats=past_feats,
+            cur_labels=cur_y,
+            past_labels=past_y,
+            cur_domains=self.current_task * torch.ones((cur_feats.shape[0],)),
             past_domains=past_domain_ids
         )
         # print(loss_supcon)
         # if torch.isnan(loss_supcon):
         #     loss_supcon = 0
         assert not torch.isnan(loss_supcon) and not torch.isinf(loss_supcon)
-        
+
         if self.args.loss_form == 'sum':
             loss_cl = (loss_cur_erm + loss_cur_kd + loss_past)
             # loss = loss_cl = loss_cur_erm + loss_past
             # loss = loss_cl = self.loss(logits, torch.cat([cur_y, past_y]))
         elif self.args.loss_form == 'avg':
-            loss_cl = 1./self.current_task * (loss_cur_erm + loss_cur_kd + loss_past)
-        
-        self.opt.zero_grad()
-        (loss_cl+loss_supcon).backward(retain_graph=True)
-        self.opt.step()
+            loss_cl = 1. / self.current_task * (loss_cur_erm + loss_cur_kd + loss_past)
 
+        self.opt.zero_grad()
+        (loss_cl + loss_supcon).backward(retain_graph=True)
+        self.opt.step()
 
         # encoder loss:
         # 1. encoder loss that aligns embedding distribution 
@@ -539,12 +539,13 @@ class UDIL(ContinualModel):
         # concatenation for encoders that contains BN.
         inputs = torch.cat((cur_x, past_x))
         logits, _, feats = self.net(inputs, returnt='all')
-        
+
         # split to current and past
         cur_logits, past_logits = torch.split(logits, [cur_x.shape[0], past_x.shape[0]])
         cur_feats, past_feats = torch.split(feats, [cur_x.shape[0], past_x.shape[0]])
 
-        loss_encoder = self.compute_encoder_loss(cur_feats, past_feats, past_feats_stored, past_domain_ids=past_domain_ids)
+        loss_encoder = self.compute_encoder_loss(cur_feats, past_feats, past_feats_stored,
+                                                 past_domain_ids=past_domain_ids)
         assert not torch.isnan(loss_encoder) and not torch.isinf(loss_encoder)
 
         if self.args.loss_form == 'avg':
@@ -565,34 +566,33 @@ class UDIL(ContinualModel):
         # elif self.args.loss_form == 'avg':
         #     loss_cl = 1./self.current_task * (loss_cur_erm + loss_cur_kd + loss_past)
         #     loss = loss_cl + 1./self.current_task * loss_encoder
-        
+
         # self.opt.zero_grad()
         # loss.backward()
         # self.opt.step()
-                
+
         return_losses = loss_cur_erm.item(), loss_cur_kd.item(), loss_past.item(), loss_encoder.item()
-        return loss_cl.item(), return_losses # simply record the average loss.
+        return loss_cl.item(), return_losses  # simply record the average loss.
 
     def compute_current_erm(self, logits, labels):
         """E_{Dt}(h)"""
         return self.loss(logits, labels)
-    
+
     def compute_current_kd(self, logits, idx, loss_form='ce', threshold=10.):
         """E_{Dt}(h, Ht-1)"""
         task_weights = self.task_weights
-        
+
         if loss_form == 'ce':
             loss_kd = soft_ce(logits_p=logits, logits_t=self.logits[idx, :].to(self.device), temp=1, reduction=True)
             # added a threshold mechanism that prevents pre-alignment LwF loss.
             return loss_kd * task_weights[1].sum() * float(loss_kd.item() < threshold)
         # 0-1 loss for updating beta.
         elif loss_form == '0-1':
-            loss_kd = (torch.argmax(logits,1) != torch.argmax(self.logits[idx, :],1)).type(torch.float).mean()
+            loss_kd = (torch.argmax(logits, 1) != torch.argmax(self.logits[idx, :], 1)).type(torch.float).mean()
             return loss_kd * task_weights[1].sum()
         else:
             supported_losses = ['ce', '0-1']
             raise NotImplementedError(f"Loss form '{loss_form}' not supported; currently supported: {supported_losses}")
-        
 
     def compute_past_losses(self, logits_p, logits_t, labels, domain_ids, loss_form='ce'):
         """
@@ -608,7 +608,7 @@ class UDIL(ContinualModel):
         task_weights = self.task_weights
 
         # get past data, past pseudo-labels, past domain ids.
-        domain_ids = (domain_ids-1).type(torch.long)
+        domain_ids = (domain_ids - 1).type(torch.long)
 
         # gamma to weight E_{Di}(h)
         alpha, gamma = task_weights[0], task_weights[2]
@@ -631,8 +631,8 @@ class UDIL(ContinualModel):
         full_cnts = torch.zeros_like(gamma, device=self.device)
         full_cnts[unique_labels] = past_domain_cnts.type(torch.float)
 
-        alpha_weights = alpha[domain_ids] / full_cnts[domain_ids] # alpha_i/N_i
-        gamma_weights = gamma[domain_ids] / full_cnts[domain_ids] # gamma_i/N_i
+        alpha_weights = alpha[domain_ids] / full_cnts[domain_ids]  # alpha_i/N_i
+        gamma_weights = gamma[domain_ids] / full_cnts[domain_ids]  # gamma_i/N_i
 
         # losses.
         if loss_form == 'ce':
@@ -643,11 +643,12 @@ class UDIL(ContinualModel):
         # so we scale the kd loss by number of dimensions logits.shape[1]
         elif loss_form == 'l2':
             loss_ce = (gamma_weights * self.loss(logits_p, labels, reduction='none')).sum()
-            loss_kd = (alpha_weights * torch.nn.functional.mse_loss(logits_p, logits_t, reduction='none').sum(dim=1)).sum() / logits_p.shape[1]
+            loss_kd = (alpha_weights * torch.nn.functional.mse_loss(logits_p, logits_t, reduction='none').sum(
+                dim=1)).sum() / logits_p.shape[1]
         # 0-1 loss for updating gamma and alphas.
         elif loss_form == '0-1':
             loss_ce = (gamma_weights * (torch.argmax(logits_p, 1) != labels).type(torch.float)).sum()
-            loss_kd = (alpha_weights * (torch.argmax(logits_p, 1) != torch.argmax(logits_t,1)).type(torch.float)).sum()
+            loss_kd = (alpha_weights * (torch.argmax(logits_p, 1) != torch.argmax(logits_t, 1)).type(torch.float)).sum()
         else:
             supported_losses = ['ce', '0-1', 'l2']
             raise NotImplementedError(f"Loss form '{loss_form}' not supported; currently supported: {supported_losses}")
@@ -670,12 +671,12 @@ class UDIL(ContinualModel):
         # Part 1: adversarial training against the discriminator
         ###############################################
         criterion = torch.nn.CrossEntropyLoss(reduction='none')
-        
+
         # encoder (generator) loss
         # self.disc.eval()
 
         # fead-forward to discriminator.
-        combined_feats = torch.cat([cur_feats, past_feats]) # to avoid BN in discriminator cheating
+        combined_feats = torch.cat([cur_feats, past_feats])  # to avoid BN in discriminator cheating
         logits = self.disc(combined_feats)
         masked_logits = logits[:, :self.current_task]
 
@@ -685,20 +686,20 @@ class UDIL(ContinualModel):
         # beta_sum = task_weights[1].sum().detach().item()
 
         # align both embedding distributions together.
-        
+
         if align_part == 'both':
-            cur_sample_weights = torch.ones((cur_feats.shape[0], ), device=self.device) / cur_feats.shape[0]
-            
+            cur_sample_weights = torch.ones((cur_feats.shape[0],), device=self.device) / cur_feats.shape[0]
+
             # get past sample weights.
-            beta_prime = (task_weights[1] / task_weights[1].sum()).detach().clone() # grad not passed through beta.
-            past_domain_ids = (past_domain_ids-1).type(torch.long)
+            beta_prime = (task_weights[1] / task_weights[1].sum()).detach().clone()  # grad not passed through beta.
+            past_domain_ids = (past_domain_ids - 1).type(torch.long)
 
             unique_labels, past_domain_cnts = torch.unique(past_domain_ids, return_counts=True, sorted=True)
             unique_labels = unique_labels.type(torch.long).to(self.device)
             past_domain_cnts = past_domain_cnts.type(torch.float).to(self.device)
             full_cnts = torch.zeros_like(beta_prime, device=self.device)
             full_cnts[unique_labels] = past_domain_cnts.type(torch.float)
-            past_samples_weights = beta_prime[past_domain_ids] / full_cnts[past_domain_ids] # beta_i/N_i
+            past_samples_weights = beta_prime[past_domain_ids] / full_cnts[past_domain_ids]  # beta_i/N_i
             # past_samples_weights = beta_prime[past_domain_ids] / past_feats.shape[0] # ADDED: make it balanced binary classification.
 
             sample_weights = torch.cat([cur_sample_weights, past_samples_weights])
@@ -710,9 +711,10 @@ class UDIL(ContinualModel):
         elif align_part == 'cur':
             cur_logits, _ = torch.split(logits, [cur_feats.shape[0], past_feats.shape[0]])
             cur_labels = torch.ones((cur_feats.shape[0],), dtype=torch.long, device=self.device)
-            cur_sample_weights = torch.ones((cur_feats.shape[0], ), device=self.device) / cur_feats.shape[0]
-            loss = -self.encoder_lambda * (cur_sample_weights * criterion(cur_logits, cur_labels)).sum() # already -log(D(G(x))), which is more stable.
-        
+            cur_sample_weights = torch.ones((cur_feats.shape[0],), device=self.device) / cur_feats.shape[0]
+            loss = -self.encoder_lambda * (cur_sample_weights * criterion(cur_logits,
+                                                                          cur_labels)).sum()  # already -log(D(G(x))), which is more stable.
+
         # self.disc.train()
 
         ###############################################
@@ -724,26 +726,29 @@ class UDIL(ContinualModel):
 
         return loss
 
-    def compute_supcon_loss(self, cur_feats, cur_labels, cur_domains=None, past_feats=None, past_labels=None, past_domains=None):
+    def compute_supcon_loss(self, cur_feats, cur_labels, cur_domains=None, past_feats=None, past_labels=None,
+                            past_domains=None):
         samples_per_domain = cur_feats.shape[0] if past_feats is None else past_feats.shape[0] // self.current_task
-        batch_cur_feats, batch_cur_labels = torch.split(cur_feats, samples_per_domain), torch.split(cur_labels, samples_per_domain)
+        batch_cur_feats, batch_cur_labels = torch.split(cur_feats, samples_per_domain), torch.split(cur_labels,
+                                                                                                    samples_per_domain)
         if cur_domains is not None:
             batch_cur_domains = torch.split(cur_domains, samples_per_domain)
 
         loss = 0
         for i in range(len(batch_cur_feats)):
             loss += self._compute_supcon_loss(
-                batch_cur_feats[i], 
-                batch_cur_labels[i], 
+                batch_cur_feats[i],
+                batch_cur_labels[i],
                 cur_domains=None if cur_domains is None else batch_cur_domains[i],
                 past_feats=past_feats,
                 past_labels=past_labels,
                 past_domains=past_domains
             )
-        
+
         return loss / len(batch_cur_feats)
 
-    def _compute_supcon_loss(self, cur_feats, cur_labels, cur_domains=None, past_feats=None, past_labels=None, past_domains=None):
+    def _compute_supcon_loss(self, cur_feats, cur_labels, cur_domains=None, past_feats=None, past_labels=None,
+                             past_domains=None):
         domains = None
         if past_feats is None or past_labels is None:
             feats = cur_feats
@@ -779,12 +784,11 @@ class UDIL(ContinualModel):
         task_weights = self.task_weights
         num_samples = self.memory.collect_all_sizes().to(self.device)
         # print('number of samples in each memory buffer:', num_samples)
-        
-        term1 = (1. + task_weights[1].sum())**2 / self.Nt
-        term2 = ((task_weights[0] + task_weights[2])**2 / num_samples).sum()
+
+        term1 = (1. + task_weights[1].sum()) ** 2 / self.Nt
+        term2 = ((task_weights[0] + task_weights[2]) ** 2 / num_samples).sum()
 
         return self.C * torch.sqrt(term1 + term2)
-        
 
     def inspect_norm(self):
         with torch.no_grad():
@@ -797,18 +801,18 @@ class UDIL(ContinualModel):
     @property
     def task_weights(self):
         base = torch.max(self.task_logits, 0, keepdim=True).values.detach()
-        return softmax(self.task_logits-base, 0)
+        return softmax(self.task_logits - base, 0)
 
     def log(self, cur_train_loader, wandb):
         """customized log for each model."""
         log_dic = {}
         if self.current_task > 1:
             log_dic = {
-                **{f'alpha_{i}': a for i, a in enumerate(self.task_weights[0])}, 
-                **{f'beta_{i}': b for i, b in enumerate(self.task_weights[1])}, 
-                **{f'gamma_{i}': c for i, c in enumerate(self.task_weights[2])}, 
+                **{f'alpha_{i}': a for i, a in enumerate(self.task_weights[0])},
+                **{f'beta_{i}': b for i, b in enumerate(self.task_weights[1])},
+                **{f'gamma_{i}': c for i, c in enumerate(self.task_weights[2])},
             }
         wandb.log(log_dic)
 
     def reset_opt(self):
-        self.opt = optimizer_dict[self.args.opt](self.net.parameters(), lr=self.args.lr) # opt created. 
+        self.opt = optimizer_dict[self.args.opt](self.net.parameters(), lr=self.args.lr)  # opt created.
